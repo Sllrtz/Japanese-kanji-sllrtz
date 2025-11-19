@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JLPT Kanji — N5 → N1</title>
+  <meta name="description" content="Interactive JLPT Kanji list (N5→N1). Search, jump to level, collapse sections, flashcards, dark mode and responsive layout.">
+  <style>
+    :root{
+      --bg: #f6f8f6; --card:#ffffff; --muted:#6b7280; --accent:#2f8f4a; --accent-2:#3aa76e; --glass: rgba(255,255,255,0.6);
+      --text:#0f172a; --shadow:0 6px 18px rgba(15,23,42,.08);
+      --header-height:72px;
+    }
+    [data-theme="dark"]{
+      --bg:#0b1220; --card:#071123; --muted:#9aa7b2; --accent:#4ade80; --accent-2:#34d399; --glass: rgba(10,17,27,0.6); --text:#e6f0ef; --shadow: 0 6px 18px rgba(2,6,23,.6);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+
+    /* Topbar */
+    header.topbar{position:sticky; top:0; z-index:1200; background:linear-gradient(90deg,var(--card), rgba(255,255,255,0.8)); backdrop-filter: blur(6px); box-shadow:var(--shadow); height:var(--header-height);}
+    .topbar-inner{max-width:1200px; margin:0 auto; display:flex; gap:12px; align-items:center; padding:12px 18px; height:100%;}
+    .brand{font-weight:700; font-size:18px; color:var(--accent);}
+    nav.levels{display:flex; gap:8px; margin-left:12px}
+    nav.levels a{padding:8px 12px; text-decoration:none; color:var(--text); background:transparent; border-radius:8px; font-weight:600}
+    nav.levels a.active{background:linear-gradient(90deg,var(--accent) 0%, var(--accent-2) 100%); color:white; box-shadow:0 6px 14px rgba(47,143,74,0.18)}
+    .controls{margin-left:auto; display:flex; gap:8px; align-items:center}
+    .btn{background:var(--card); border:1px solid rgba(0,0,0,0.06); padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:600}
+    .btn.secondary{background:transparent; border:1px solid rgba(0,0,0,0.06)}
+    .container{max-width:1200px; margin:28px auto; padding: 0 18px 80px}
+    .hero{display:flex; gap:18px; align-items:center; justify-content:center; margin-bottom:18px}
+    .hero h1{margin:0; font-size:26px}
+    .searchbar{display:flex; gap:8px; align-items:center}
+    .searchbar input{padding:10px 12px; border-radius:10px; border:1px solid #e6edf0; min-width:260px}
+    .grid{display:grid; grid-template-columns: 1fr; gap:18px}
+
+    /* Section card */
+    section.kanji-level{background:var(--card); padding:18px; border-radius:12px; box-shadow:var(--shadow)}
+    section.kanji-level header{display:flex; align-items:center; gap:12px}
+    section.kanji-level h2{margin:0; font-size:18px}
+    .meta{color:var(--muted); font-size:13px}
+    .controls-row{display:flex; gap:8px; margin-left:auto}
+
+    table.kanji-table{width:100%; border-collapse:collapse; margin-top:12px}
+    table.kanji-table th, table.kanji-table td{padding:10px 12px; border-bottom:1px solid rgba(0,0,0,0.06); text-align:left}
+    table.kanji-table thead th{background:linear-gradient(90deg,var(--accent), var(--accent-2)); color:white; position:sticky; top:var(--header-height)}
+    tr:hover td{background:linear-gradient(90deg, rgba(47,143,74,0.02), rgba(58,167,110,0.02))}
+    tr.selected td{outline:3px solid rgba(47,143,74,0.18); outline-offset:-3px}
+    td.kanji-char{font-size:20px; width:84px; font-weight:700}
+    td.meaning{width:220px}
+    td.vocab{color:var(--muted); font-size:13px}
+
+    /* Collapsible (accordion) */
+    .accordion{margin-top:12px}
+    .acc-row{display:flex; align-items:center; justify-content:space-between; padding:10px; border-radius:8px}
+    .acc-toggle{cursor:pointer; font-weight:700; user-select:none}
+    .acc-body{margin-top:8px; display:none}
+    .acc-body.open{display:block}
+
+    /* Flashcard modal */
+    .flash-modal{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(2,6,23,0.5); z-index:1400; visibility:hidden; opacity:0; transition:all .18s}
+    .flash-modal.open{visibility:visible; opacity:1}
+    .flashcard{background:var(--card); padding:22px; border-radius:12px; min-width:320px; max-width:520px; box-shadow:var(--shadow); text-align:center}
+    .flashcard .kanji{font-size:64px; font-weight:900}
+    .flashcard .reading{margin-top:8px; color:var(--muted)}
+    .flashcard .controls{display:flex; gap:10px; justify-content:center; margin-top:14px}
+
+    /* Responsive */
+    @media (min-width:880px){.grid{grid-template-columns: 1fr 380px}}
+    .sidebar{position:sticky; top:92px}
+    .level-summary{background:var(--card); padding:12px; border-radius:10px; box-shadow:var(--shadow)}
+
+    footer{max-width:1200px; margin:40px auto; padding:18px; text-align:center; color:var(--muted); font-size:13px}
+  </style>
+</head>
+<body data-theme="light">
+  <header class="topbar" role="banner">
+    <div class="topbar-inner">
+      <div class="brand">JLPT Kanji</div>
+
+      <nav class="levels" id="topNav" aria-label="JLPT levels">
+        <a href="#n5">N5</a>
+        <a href="#n4">N4</a>
+        <a href="#n3">N3</a>
+        <a href="#n2">N2</a>
+        <a href="#n1">N1</a>
+      </nav>
+
+      <div class="controls" role="region" aria-label="Controls">
+        <div class="searchbar" aria-hidden="false">
+          <label for="searchInput" class="sr-only" style="position:absolute;left:-9999px">Search</label>
+          <input id="searchInput" type="search" placeholder="Search kanji, meaning, vocab... (e.g. '日' or 'day')">
+        </div>
+
+        <button class="btn" id="flashBtn" title="Open flashcards">Flashcards</button>
+        <button class="btn" id="quizBtn" title="Start quiz">Quiz</button>
+        <button class="btn secondary" id="themeToggle" aria-pressed="false">Dark</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" role="main">
+    <div class="hero" aria-hidden="false">
+      <h1>JLPT Kanji — N5 → N1</h1>
+      <div class="meta">Interactive study page — click a level to jump, search, collapse sections, or use flashcards</div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <!-- N5 -->
+        <section id="n5" class="kanji-level" tabindex="-1">
+          <header>
+            <h2>N5 — Basic Kanji</h2>
+            <div class="meta">Common simple kanji used in everyday life</div>
+            <div class="controls-row" style="margin-left:auto"></div>
+          </header>
+
+          <div class="accordion">
+            <div class="acc-row" data-acc="numbers">
+              <div><strong>Numbers</strong> — 一 二 三 十 百 千 万</div>
+              <button class="acc-toggle" data-target="numbers" aria-expanded="false" aria-controls="numbers">▼</button>
+            </div>
+            <div class="acc-body" id="numbers" role="region" aria-hidden="true">
+              <table class="kanji-table" data-level="n5">
+                <thead>
+                  <tr><th>Kanji</th><th>Meaning</th><th>Onyomi</th><th>Kunyomi</th><th>Vocabulary</th></tr>
+                </thead>
+                <tbody>
+                  <tr id="n5-1"><td class="kanji-char">一</td><td class="meaning">One</td><td>いち (ichi)</td><td>ひと(つ) (hito(tsu))</td><td class="vocab">一人 (hitori) — one person</td></tr>
+                  <tr id="n5-2"><td class="kanji-char">二</td><td class="meaning">Two</td><td>に (ni)</td><td>ふた(つ) (futa(tsu))</td><td class="vocab">二人 (futari) — two people</td></tr>
+                  <tr id="n5-3"><td class="kanji-char">三</td><td class="meaning">Three</td><td>さん (san)</td><td>み(っつ) (mi(ttsu))</td><td class="vocab">三日 (mikka) — 3rd day</td></tr>
+                  <tr><td class="kanji-char">四</td><td class="meaning">Four</td><td>し (shi)</td><td>よ(っつ), よん (yo(ttsu), yon)</td><td class="vocab">四日 (yokka) — 4th day</td></tr>
+                  <tr><td class="kanji-char">五</td><td class="meaning">Five</td><td>ご (go)</td><td>いつ(つ) (itsu(tsu))</td><td class="vocab">五日 (itsuka) — 5th day</td></tr>
+                  <tr><td class="kanji-char">六</td><td class="meaning">Six</td><td>ろく (roku)</td><td>む(っつ)、むい (mu(ttsu), mui)</td><td class="vocab">六日 (muika) — 6th day</td></tr>
+                  <tr><td class="kanji-char">七</td><td class="meaning">Seven</td><td>しち (shichi)</td><td>なな(つ) (nana(tsu))</td><td class="vocab">七日 (nanoka) — 7th day</td></tr>
+                  <tr><td class="kanji-char">八</td><td class="meaning">Eight</td><td>はち (hachi)</td><td>や(っつ) (ya(ttsu))</td><td class="vocab">八日 (youka) — 8th day</td></tr>
+                  <tr><td class="kanji-char">九</td><td class="meaning">Nine</td><td>きゅう, く (kyuu, ku)</td><td>ここの(つ) (kokono(tsu))</td><td class="vocab">九日 (kokonoka) — 9th day</td></tr>
+                  <tr><td class="kanji-char">十</td><td class="meaning">Ten</td><td>じゅう (juu)</td><td>とお (too)</td><td class="vocab">十日 (tooka) — 10th day</td></tr>
+                  <tr><td class="kanji-char">百</td><td class="meaning">Hundred</td><td>ひゃく (hyaku)</td><td>—</td><td class="vocab">百円 (hyakuen) — 100 yen</td></tr>
+                  <tr><td class="kanji-char">千</td><td class="meaning">Thousand</td><td>せん (sen)</td><td>ち (chi)</td><td class="vocab">千円 (senen) — 1,000 yen</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="accordion">
+            <div class="acc-row" data-acc="time">
+              <div><strong>Time</strong> — 日 月 年 時 分 今 先 来</div>
+              <button class="acc-toggle" data-target="time" aria-expanded="false" aria-controls="time">▼</button>
+            </div>
+            <div class="acc-body" id="time" role="region" aria-hidden="true">
+              <table class="kanji-table" data-level="n5">
+                <thead><tr><th>Kanji</th><th>Meaning</th><th>Onyomi</th><th>Kunyomi</th><th>Vocabulary</th></tr></thead>
+                <tbody>
+                  <tr><td class="kanji-char">日</td><td class="meaning">Day, sun</td><td>にち, じつ</td><td>ひ, か</td><td class="vocab">日曜日 (nichiyoubi) — Sunday</td></tr>
+                  <tr><td class="kanji-char">月</td><td class="meaning">Month, moon</td><td>げつ, がつ</td><td>つき</td><td class="vocab">月曜日 (getsuyoubi) — Monday</td></tr>
+                  <tr><td class="kanji-char">年</td><td class="meaning">Year</td><td>ねん</td><td>とし</td><td class="vocab">去年 (kyonen) — last year</td></tr>
+                  <tr><td class="kanji-char">時</td><td class="meaning">Hour, time</td><td>じ</td><td>とき</td><td class="vocab">何時 (nanji) — what time</td></tr>
+                  <tr><td class="kanji-char">分</td><td class="meaning">Minute, part</td><td>ぶん, ふん</td><td>わ(かる)</td><td class="vocab">自分 (jibun), 分かる (wakaru)</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- N4 -->
+        <section id="n4" class="kanji-level" tabindex="-1" style="margin-top:18px">
+          <header>
+            <h2>N4 — Next Level Kanji</h2>
+            <div class="meta">Common N4 kanji (verbs, nouns, grammar-related)</div>
+          </header>
+
+          <div style="margin-top:12px">
+            <table class="kanji-table" data-level="n4">
+              <thead><tr><th>Kanji</th><th>Meaning</th><th>Onyomi</th><th>Kunyomi</th><th>Example</th></tr></thead>
+              <tbody>
+                <tr><td class="kanji-char">仕</td><td class="meaning">serve, do</td><td>シ</td><td>つか(える)</td><td class="vocab">仕事 (しごと) — work</td></tr>
+                <tr><td class="kanji-char">事</td><td class="meaning">thing, matter</td><td>ジ</td><td>こと</td><td class="vocab">用事 (ようじ) — task</td></tr>
+                <tr><td class="kanji-char">使</td><td class="meaning">use</td><td>シ</td><td>つか(う)</td><td class="vocab">使う (つかう) — to use</td></tr>
+                <tr><td class="kanji-char">住</td><td class="meaning">live, reside</td><td>ジュウ</td><td>す(む)</td><td class="vocab">住む (すむ) — to live</td></tr>
+                <tr><td class="kanji-char">体</td><td class="meaning">body</td><td>タイ</td><td>からだ</td><td class="vocab">体 (からだ) — body</td></tr>
+                <tr><td class="kanji-char">作</td><td class="meaning">make</td><td>サク</td><td>つく(る)</td><td class="vocab">作文 (さくぶん) — composition</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- N3 -->
+        <section id="n3" class="kanji-level" tabindex="-1" style="margin-top:18px">
+          <header><h2>N3 — Intermediate Kanji</h2><div class="meta">Common intermediate kanji</div></header>
+          <div style="margin-top:12px">
+            <table class="kanji-table" data-level="n3">
+              <thead><tr><th>Kanji</th><th>Meaning</th><th>Onyomi</th><th>Kunyomi</th><th>Example</th></tr></thead>
+              <tbody>
+                <tr><td class="kanji-char">経</td><td class="meaning">Pass through, manage</td><td>ケイ</td><td>へ(る)</td><td class="vocab">経験 (けいけん) — experience</td></tr>
+                <tr><td class="kanji-char">由</td><td class="meaning">Reason</td><td>ユ</td><td>よし</td><td class="vocab">理由 (りゆう) — reason</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- N2 -->
+        <section id="n2" class="kanji-level" tabindex="-1" style="margin-top:18px">
+          <header><h2>N2 — Upper-Intermediate Kanji</h2><div class="meta">Higher frequency kanji</div></header>
+          <div style="margin-top:12px">
+            <table class="kanji-table" data-level="n2">
+              <thead><tr><th>Kanji</th><th>Meaning</th><th>Onyomi</th><th>Kunyomi</th><th>Example</th></tr></thead>
+              <tbody>
+                <tr><td class="kanji-char">措</td><td class="meaning">Arrange, set aside</td><td>ソ</td><td>お(く)</td><td class="vocab">措置 (そち) — measure</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- N1 -->
+        <section id="n1" class="kanji-level" tabindex="-1" style="margin-top:18px">
+          <header><h2>N1 — Advanced Kanji</h2><div class="meta">Advanced and rare kanji</div></header>
+          <div style="margin-top:12px">
+            <table class="kanji-table" data-level="n1">
+              <thead><tr><th>Kanji</th><th>Meaning</th><th>Onyomi</th><th>Kunyomi</th><th>Example</th></tr></thead>
+              <tbody>
+                <tr><td class="kanji-char">懐</td><td class="meaning">Nostalgia, pocket</td><td>カイ</td><td>なつ(かしい)</td><td class="vocab">懐かしい (なつかしい) — nostalgic</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+
+      <aside class="sidebar" aria-label="Sidebar">
+        <div class="level-summary">
+          <h3 style="margin:0 0 8px">Quick jump</h3>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <a class="btn" href="#n5">N5</a>
+            <a class="btn" href="#n4">N4</a>
+            <a class="btn" href="#n3">N3</a>
+            <a class="btn" href="#n2">N2</a>
+            <a class="btn" href="#n1">N1</a>
+          </div>
+          <hr style="margin:12px 0; border:none; height:1px; background:rgba(0,0,0,0.06)">
+          <div class="meta">Click any kanji row to highlight and add to flashcards.</div>
+        </div>
+      </aside>
+    </div>
+
+  </main>
+
+  <footer>&copy; 2025 JLPT Kanji Study — Made for studying. Export this page as <strong>index.html</strong> and open in browser.</footer>
+
+  <!-- Quiz modal -->
+  <div class="flash-modal" id="quizModal" role="dialog" aria-hidden="true" aria-labelledby="quizTitle">
+    <div class="flashcard" id="quizCard" role="document" aria-live="polite">
+      <div style="text-align:left; font-weight:700; margin-bottom:8px">Self-test — <span id="quizMode">Selected</span></div>
+      <div style="font-size:56px; text-align:center; font-weight:900" id="quizKanji">日</div>
+      <div style="margin-top:10px; text-align:center">
+        <input id="quizAnswer" placeholder="Type meaning or reading (e.g. 'day' or 'にち')" style="padding:8px 10px; width:100%; border-radius:8px; border:1px solid rgba(0,0,0,0.08)">
+      </div>
+      <div class="controls" style="margin-top:12px;">
+        <button class="btn" id="checkAnswer">Check</button>
+        <button class="btn" id="skipQ">Skip</button>
+        <button class="btn" id="endQuiz">End</button>
+      </div>
+      <div style="margin-top:12px; text-align:center"><small id="quizFeedback" style="color:var(--muted)"></small></div>
+      <div style="margin-top:12px"><button class="btn secondary" id="closeQuiz">Close</button></div>
+    </div>
+  </div>
+
+  <!-- Flashcard modal -->
+  <div class="flash-modal" id="flashModal" role="dialog" aria-hidden="true" aria-labelledby="flashTitle">
+    <div class="flashcard" id="flashcard" role="document" aria-live="polite">
+      <div class="kanji" id="cardKanji">日</div>
+      <div class="reading" id="cardReading">にち / ひ</div>
+      <div class="meaning" id="cardMeaning">day, sun</div>
+      <div class="controls">
+        <button class="btn" id="prevCard">Prev</button>
+        <button class="btn" id="flipCard">Flip</button>
+        <button class="btn" id="nextCard">Next</button>
+      </div>
+      <div style="margin-top:12px"><button class="btn secondary" id="closeFlash">Close</button></div>
+    </div>
+  </div>
+
+  <script>
+    // ---------------------
+    // Utility helpers
+    // ---------------------
+    const $ = (sel, ctx = document) => ctx.querySelector(sel);
+    const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+    // Smooth scroll
+    document.documentElement.style.scrollBehavior = 'smooth';
+
+    // ---------------------
+    // IntersectionObserver for active nav
+    // ---------------------
+    const sections = document.querySelectorAll('main section[id]');
+    const navLinks = document.querySelectorAll('#topNav a');
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const id = entry.target.id;
+        const link = document.querySelector(`#topNav a[href="#${id}"]`);
+        if (entry.isIntersecting) {
+          navLinks.forEach(a => a.classList.remove('active'));
+          if (link) link.classList.add('active');
+          // update hash without scrolling
+          history.replaceState(null, '', `#${id}`);
+        }
+      });
+    }, {root: null, threshold: 0.45});
+
+    sections.forEach(s => observer.observe(s));
+
+    // ---------------------
+    // Accordion toggles (ARIA-friendly)
+    // ---------------------
+    $$('.acc-toggle').forEach(btn => {
+      const targetId = btn.dataset.target;
+      const target = document.getElementById(targetId);
+      if (!target) return;
+      btn.addEventListener('click', () => {
+        const wasOpen = target.classList.contains('open');
+        if (wasOpen) {
+          target.classList.remove('open');
+          target.setAttribute('aria-hidden','true');
+          btn.textContent = '▼';
+          btn.setAttribute('aria-expanded','false');
+        } else {
+          target.classList.add('open');
+          target.setAttribute('aria-hidden','false');
+          btn.textContent = '▲';
+          btn.setAttribute('aria-expanded','true');
+        }
+      });
+
+      // Allow Enter/Space keyboard toggle
+      btn.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          btn.click();
+        }
+      });
+    });
+
+    // Initialize (collapse)
+    $$('.acc-body').forEach(b => {
+      b.classList.remove('open');
+      b.setAttribute('aria-hidden','true');
+    });
+
+    // ---------------------
+    // Search filtering
+    // ---------------------
+    const searchInput = document.getElementById('searchInput');
+    function runSearch(q) {
+      q = (q || '').trim().toLowerCase();
+      const rows = $$('table.kanji-table tbody tr');
+      rows.forEach(tr => {
+        const text = tr.innerText.toLowerCase();
+        tr.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+      });
+    }
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => runSearch(e.target.value));
+    }
+
+    // ---------------------
+    // Theme toggle (persist)
+    // ---------------------
+    const themeToggle = document.getElementById('themeToggle');
+    const body = document.body;
+    const storedTheme = localStorage.getItem('jlpt-theme');
+    if (storedTheme) {
+      body.setAttribute('data-theme', storedTheme);
+      themeToggle.textContent = storedTheme === 'dark' ? 'Light' : 'Dark';
+      themeToggle.setAttribute('aria-pressed', storedTheme === 'dark');
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const isDark = body.getAttribute('data-theme') === 'dark';
+      const next = isDark ? 'light' : 'dark';
+      body.setAttribute('data-theme', next);
+      themeToggle.textContent = next === 'dark' ? 'Light' : 'Dark';
+      themeToggle.setAttribute('aria-pressed', next === 'dark');
+      localStorage.setItem('jlpt-theme', next);
+    });
+
+    // ---------------------
+    // Row click -> select / add to flashList
+    // ---------------------
+    const flashList = []; // {kanji, meaning, reading}
+    function findInFlash(kanji) { return flashList.findIndex(x => x.kanji === kanji); }
+
+    $$('table.kanji-table tbody tr').forEach(tr => {
+      tr.style.cursor = 'pointer';
+      tr.addEventListener('click', () => {
+        const kanji = tr.querySelector('.kanji-char')?.innerText?.trim() || '';
+        const meaning = tr.querySelector('.meaning')?.innerText?.trim() || '';
+        const reading = tr.querySelector('.vocab')?.innerText?.trim() || '';
+
+        const idx = findInFlash(kanji);
+        if (idx === -1 && kanji) {
+          flashList.push({kanji, meaning, reading});
+          tr.classList.add('selected');
+        } else if (idx !== -1) {
+          flashList.splice(idx,1);
+          tr.classList.remove('selected');
+        }
+      });
+      // keyboard select
+      tr.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tr.click(); }
+      });
+      tr.setAttribute('tabindex','0');
+    });
+
+    // ---------------------
+    // Flashcard modal logic
+    // ---------------------
+    const flashModal = document.getElementById('flashModal');
+    const cardKanji = document.getElementById('cardKanji');
+    const cardReading = document.getElementById('cardReading');
+    const cardMeaning = document.getElementById('cardMeaning');
+    let current = 0;
+    let cardFlipped = false;
+
+    function showCard(i) {
+      if (!flashList.length) return;
+      current = ((i % flashList.length) + flashList.length) % flashList.length;
+      const item = flashList[current];
+      cardKanji.textContent = item.kanji || '?';
+      // front view: show kanji; flipped view shows reading & meaning
+      if (cardFlipped) {
+        cardReading.style.display = '';
+        cardMeaning.style.display = '';
+      } else {
+        cardReading.style.display = '';
+        cardMeaning.style.display = '';
+      }
+      cardReading.textContent = item.reading || '';
+      cardMeaning.textContent = item.meaning || '';
+    }
+
+    // open flashcards
+    document.getElementById('flashBtn').addEventListener('click', () => {
+      // if empty, auto-add visible rows up to 30
+      if (!flashList.length) {
+        const visible = $$('table.kanji-table tbody tr:not([style*="display: none"])');
+        visible.slice(0, 30).forEach(tr => {
+          const kanji = tr.querySelector('.kanji-char')?.innerText?.trim() || '';
+          const meaning = tr.querySelector('.meaning')?.innerText?.trim() || '';
+          const reading = tr.querySelector('.vocab')?.innerText?.trim() || '';
+          if (kanji && findInFlash(kanji) === -1) {
+            flashList.push({kanji, meaning, reading});
+            tr.classList.add('selected');
+          }
+        });
+      }
+      if (!flashList.length) {
+        return alert('No kanji selected or visible to make flashcards. Click some rows or clear search.');
+      }
+      current = 0;
+      cardFlipped = false;
+      showCard(0);
+      flashModal.classList.add('open');
+      flashModal.setAttribute('aria-hidden','false');
+      // focus inside
+      document.getElementById('closeFlash').focus();
+    });
+
+    document.getElementById('closeFlash').addEventListener('click', () => {
+      flashModal.classList.remove('open'); flashModal.setAttribute('aria-hidden','true');
+    });
+    document.getElementById('nextCard').addEventListener('click', () => { showCard(current+1); });
+    document.getElementById('prevCard').addEventListener('click', () => { showCard(current-1); });
+    document.getElementById('flipCard').addEventListener('click', () => {
+      cardFlipped = !cardFlipped;
+      // simple flip behaviour: reveal reading/meaning (could animate)
+      if (cardFlipped) {
+        cardReading.style.opacity = '1';
+        cardMeaning.style.opacity = '1';
+      } else {
+        cardReading.style.opacity = '1';
+        cardMeaning.style.opacity = '1';
+      }
+      // re-show text (no hidden state here)
+      showCard(current);
+    });
+
+    // ---------------------
+    // Quiz modal logic (basic)
+    // ---------------------
+    const quizModal = document.getElementById('quizModal');
+    const quizKanji = document.getElementById('quizKanji');
+    const quizAnswer = document.getElementById('quizAnswer');
+    const quizFeedback = document.getElementById('quizFeedback');
+    const quizMode = document.getElementById('quizMode');
+
+    let quizIndex = 0;
+
+    function openQuiz() {
+      // if flashList empty, auto-add visible
+      if (!flashList.length) {
+        const visible = $$('table.kanji-table tbody tr:not([style*="display: none"])');
+        visible.slice(0, 30).forEach(tr => {
+          const kanji = tr.querySelector('.kanji-char')?.innerText?.trim() || '';
+          const meaning = tr.querySelector('.meaning')?.innerText?.trim() || '';
+          const reading = tr.querySelector('.vocab')?.innerText?.trim() || '';
+          if (kanji && findInFlash(kanji) === -1) {
+            flashList.push({kanji, meaning, reading});
+            tr.classList.add('selected');
+          }
+        });
+      }
+      if (!flashList.length) return alert('No kanji selected for quiz. Select some rows first or clear search to add visible items.');
+      quizIndex = 0;
+      quizMode.textContent = 'Selected';
+      showQuiz(0);
+      quizModal.classList.add('open'); quizModal.setAttribute('aria-hidden','false');
+      quizAnswer.value = '';
+      quizFeedback.textContent = '';
+      quizAnswer.focus();
+    }
+
+    function showQuiz(i) {
+      if (!flashList.length) return;
+      quizIndex = ((i % flashList.length) + flashList.length) % flashList.length;
+      const item = flashList[quizIndex];
+      quizKanji.textContent = item.kanji || '?';
+      quizAnswer.value = '';
+      quizFeedback.textContent = '';
+    }
+
+    function checkQuizAnswer() {
+      if (!flashList.length) return;
+      const item = flashList[quizIndex];
+      const answer = (quizAnswer.value || '').trim().toLowerCase();
+      const ok = [item.meaning || '', item.reading || ''].map(x=>x.toLowerCase()).some(x=> x && answer && x.includes(answer));
+      if (ok) {
+        quizFeedback.textContent = 'Correct ✅ — ' + (item.meaning || '');
+        // auto next after correct
+        setTimeout(() => showQuiz(quizIndex+1), 600);
+      } else {
+        quizFeedback.textContent = 'Try again ✖️';
+      }
+    }
+
+    document.getElementById('quizBtn').addEventListener('click', openQuiz);
+    document.getElementById('checkAnswer').addEventListener('click', checkQuizAnswer);
+    document.getElementById('skipQ').addEventListener('click', () => showQuiz(quizIndex+1));
+    document.getElementById('endQuiz').addEventListener('click', () => {
+      quizModal.classList.remove('open'); quizModal.setAttribute('aria-hidden','true');
+    });
+    document.getElementById('closeQuiz').addEventListener('click', () => {
+      quizModal.classList.remove('open'); quizModal.setAttribute('aria-hidden','true');
+    });
+
+    // ---------------------
+    // Nav click behaviour (visual active)
+    // ---------------------
+    document.querySelectorAll('nav.levels a, .sidebar a').forEach(a => {
+      a.addEventListener('click', (e) => {
+        // remove active and add to clicked
+        document.querySelectorAll('nav.levels a').forEach(x=>x.classList.remove('active'));
+        a.classList.add('active');
+      });
+    });
+
+    // Set active if loaded with hash
+    if (location.hash) {
+      const link = document.querySelector(`#topNav a[href="${location.hash}"]`);
+      if (link) link.classList.add('active');
+    }
+
+    // ---------------------
+    // Accessibility: global key handlers
+    // ---------------------
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        // close any open modal
+        if (flashModal.classList.contains('open')) { flashModal.classList.remove('open'); flashModal.setAttribute('aria-hidden','true'); }
+        if (quizModal.classList.contains('open')) { quizModal.classList.remove('open'); quizModal.setAttribute('aria-hidden','true'); }
+      }
+    });
+
+    // small safety: focus outlines for keyboard users
+    document.body.addEventListener('mousedown', () => document.body.classList.add('using-mouse'));
+    document.body.addEventListener('keydown', () => document.body.classList.remove('using-mouse'));
+  </script>
+</body>
+</html>
